@@ -24,6 +24,9 @@ jobs:
         run: npm install
 
       - name: Build web app
+        env:
+          VITE_SUPABASE_URL: https://fsharwhynwncqcmolmsy.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_sNlnIwLXC6T6gqY-GHSXsA_qW0B1T6A
         run: npm run build
 
       - name: Generate Android project
