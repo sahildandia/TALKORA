@@ -8,7 +8,7 @@ import { useViewport } from './useViewport';
 import Dashboard from './Dashboard';
 
 type Modal = 'privacy' | 'guidelines' | 'report' | 'end' | null;
-type Screen = 'home' | 'dashboard' | 'searching' | 'chat' | 'disconnected';
+type Screen = 'home' | 'dashboard' | 'searching' | 'chat' | 'disconnected' | 'reconnect';
 const support = import.meta.env.VITE_SUPPORT_EMAIL as string | undefined;
 const time = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 function splitReply(body: string) {
@@ -56,6 +56,10 @@ export default function App() {
   const followMessages = useRef(true);
   const [newMessages, setNewMessages] = useState(false);
   const [peerLeft, setPeerLeft] = useState(false);
+  const [reconnectCode, setReconnectCode] = useState('');
+  const [reconnectInput, setReconnectInput] = useState('');
+  const [reconnectStatus, setReconnectStatus] = useState<'none' | 'waiting' | 'ready' | 'expired'>('none');
+  const [reconnectExpiry, setReconnectExpiry] = useState('');
   const lastTyping = useRef(0);
   const pendingMessage = useRef<{ body: string; nonce: string; sid: string } | null>(null);
   const generation = useRef(0);
@@ -159,6 +163,19 @@ export default function App() {
     return () => { void db?.removeChannel(channel); };
   }, [session?.id, screen, refresh]);
 
+  useEffect(() => {
+    if (!session?.id || screen !== 'chat' || !configured) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const result = await rpc<{status:'none'|'waiting'|'ready'|'expired';code?:string;expires_at?:string}>('tk_reconnect_status', { p_session_id: session.id });
+        if (!cancelled) { setReconnectStatus(result.status); if (result.code) { setReconnectCode(result.code); setReconnectExpiry(result.expires_at ?? ''); } }
+      } catch { /* reconnect status is optional until used */ }
+    };
+    void load(); const timer = setInterval(() => { void load(); }, 2500);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [session?.id, screen]);
+
   const latestMessage = messages.at(-1)?.id;
   useEffect(() => {
     const list = messageList.current;
@@ -234,6 +251,36 @@ export default function App() {
       if (snapshot.state === 'chat' && snapshot.session) await loadMessages(snapshot.session.id, generation.current);
     });
   }
+  async function consentReconnect() {
+    if (!session || busy || reconnectStatus === 'ready') return;
+    await action(async () => {
+      const result = await rpc<{status:'waiting'|'ready';code?:string;expires_at?:string}>('tk_reconnect_consent', { p_session_id: session.id });
+      setReconnectStatus(result.status);
+      if (result.code) { setReconnectCode(result.code); setReconnectExpiry(result.expires_at ?? ''); }
+      setNotice(result.status === 'ready' ? 'You both agreed! Save this code to reconnect for 24 hours.' : 'You agreed. Waiting for the other person to tap 😊.');
+    });
+  }
+  async function openReconnect(event: FormEvent) {
+    event.preventDefault();
+    const code = reconnectInput.trim().toUpperCase();
+    if (!code || busy) return;
+    await action(async () => {
+      const result = await rpc<{id:string;code:string;expires_at:string;messages:Array<{id:string;sender_id:string;body:string;created_at:string}>}>('tk_reconnect_open', { p_code: code });
+      setReconnectCode(result.code); setReconnectExpiry(result.expires_at);
+      setMessages(result.messages.map(m => ({...m, session_id:result.id, client_nonce:m.id})) as Message[]);
+      setDraft(''); setReplyTo(null); setReconnectInput(''); setScreen('reconnect');
+    });
+  }
+  async function sendReconnect(event: FormEvent) {
+    event.preventDefault(); const body=draft.trim();
+    if (!body || !reconnectCode || sending || busy) return;
+    setSending(true);
+    try {
+      const m=await rpc<{id:string;sender_id:string;body:string;created_at:string}>('tk_reconnect_send',{p_code:reconnectCode,p_body:body});
+      setMessages(previous=>[...previous,{...m,session_id:'reconnect',client_nonce:m.id} as Message]); setDraft('');
+    } catch(e) { setError(friendlyError(e)); }
+    finally { setSending(false); }
+  }
   async function send(event: FormEvent) {
     event.preventDefault();
     const typedBody = draft.trim(); const current = sessionRef.current;
@@ -279,7 +326,7 @@ export default function App() {
       <div className="side-footer"><ShieldCheck size={17}/><span>Anonymous by design. Kindness by choice.</span></div>
     </aside>
     <main className="main-panel">
-      <header className="topbar"><div className="mobile-brand">Talkora<span>.</span></div>{screen === 'chat' ? <div className="chat-header-actions"><div className="active-users-header" aria-label="Active members"><span className="active-users-indicator" aria-hidden="true"></span><strong>{activeUsers === null ? "—" : activeUsers}</strong><small>Active members</small></div><button type="button" className="chat-header-button" disabled={busy || sending} onClick={leave}>End</button><button type="button" className="chat-header-button skip" disabled={busy || sending} onClick={next}>Skip</button></div> : <><span className="live-label"><i/> REAL PEOPLE. REAL CONVERSATIONS.</span><div className="topbar-tools">{screen === 'searching' ? <div className="active-users-header" aria-label="Active members"><span className="active-users-indicator" aria-hidden="true"></span><strong>{activeUsers === null ? "—" : activeUsers}</strong><small>Active members</small></div> : null}<button className="theme-toggle" onClick={() => setLight(v => !v)} aria-label={light ? "Switch to black theme" : "Switch to white theme"} title={light ? "Dark theme" : "Light theme"}>{light ? <Moon size={20}/> : <Sun size={20}/>}</button></div></>}</header>
+      <header className="topbar"><div className="mobile-brand">Talkora<span>.</span></div>{screen === 'chat' ? <div className="chat-header-actions">{reconnectStatus === 'ready' && reconnectCode ? <span className="reconnect-code-chip">{reconnectCode}</span> : <button type="button" className="chat-header-button reconnect-consent" disabled={busy || reconnectStatus === 'waiting'} onClick={() => void consentReconnect()}>{reconnectStatus === 'waiting' ? 'Waiting…' : '😊'}</button>}<div className="active-users-header" aria-label="Active members"><span className="active-users-indicator" aria-hidden="true"></span><strong>{activeUsers === null ? "—" : activeUsers}</strong><small>Active members</small></div><button type="button" className="chat-header-button" disabled={busy || sending} onClick={leave}>End</button><button type="button" className="chat-header-button skip" disabled={busy || sending} onClick={next}>Skip</button></div> : <><span className="live-label"><i/> REAL PEOPLE. REAL CONVERSATIONS.</span><div className="topbar-tools">{screen === 'searching' ? <div className="active-users-header" aria-label="Active members"><span className="active-users-indicator" aria-hidden="true"></span><strong>{activeUsers === null ? "—" : activeUsers}</strong><small>Active members</small></div> : null}<button className="theme-toggle" onClick={() => setLight(v => !v)} aria-label={light ? "Switch to black theme" : "Switch to white theme"} title={light ? "Dark theme" : "Light theme"}>{light ? <Moon size={20}/> : <Sun size={20}/>}</button></div></>}</header>
       {broken && engaged.current ? <div className="network-banner" role="status"><WifiOff size={16}/> Reconnecting… Messages are paused.<button onClick={() => void refresh()}>Retry</button></div> : null}
       {!online && screen === 'home' ? <div className="network-banner" role="status"><WifiOff size={16}/> You’re offline. Connect to the internet to start a conversation.</div> : null}
       {error ? <div className="feedback error" role="alert"><span>{error}</span><button className="icon-button" aria-label="Dismiss error" onClick={() => setError('')}><X size={16}/></button></div> : null}
@@ -291,6 +338,7 @@ export default function App() {
           {needsCaptcha ? <Captcha key={captchaKey} onToken={setCaptchaToken}/> : null}
           <button className="button primary start-button" disabled={busy || !online || (needsCaptcha && !captchaToken)} onClick={start}><MessageCircle size={20}/>{busy ? 'Connecting…' : 'Start Chat'}<ArrowRight size={20}/></button>
           <p className="micro age-note">For adults 18+.</p>
+          <div className="reconnect-entry"><span>Already have a reconnect code?</span><form onSubmit={e => void openReconnect(e)}><input aria-label="Reconnect code" placeholder="Enter your code" value={reconnectInput} onChange={e => setReconnectInput(e.target.value)} maxLength={12}/><button className="button secondary" type="submit" disabled={!reconnectInput.trim() || busy}>Reconnect</button></form></div>
         </div>
         {!configured ? <p className="setup-note">Chat service is temporarily unavailable. Please try again later.</p> : null}
       </section> : null}
@@ -302,6 +350,8 @@ export default function App() {
       {screen === 'chat' ? <section className="chat-area" aria-label="Live chat"><div className="conversation-body">{peerLeft ? <div role="status" style={{margin:'12px auto',maxWidth:420,padding:'14px 18px',border:'1px solid var(--line, #444)',borderRadius:14,textAlign:'center',background:'var(--surface, #171717)'}}><strong style={{display:'block',marginBottom:6}}>User left the chat</strong><span style={{display:'block',fontSize:13,opacity:.72,marginBottom:12}}>This conversation has ended.</span><button type="button" className="button primary" disabled={busy} onClick={next}><Shuffle size={16}/> Find a new stranger</button></div> : null}<div ref={messageList} className="message-list" role="log" aria-label="Conversation" onScroll={e => { const list = e.currentTarget; followMessages.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80; if (followMessages.current) setNewMessages(false); }}>{messages.map(message => { const parts = splitReply(message.body); return <div key={message.id} className={`message ${message.sender_id === uid ? 'mine' : 'theirs'}`}>{parts.quote ? <div className="message-reply-quote"><span>{parts.quote}</span></div> : null}<span className="message-text">{parts.text}</span><div className="message-meta"><time dateTime={message.created_at}>{time(message.created_at)}{message.sender_id === uid ? <Check size={12}/> : null}</time><button type="button" className="reply-button" onClick={() => {setReplyTo(message); messageInput.current?.focus({preventScroll:true});}} aria-label="Reply to message">Reply</button></div></div>; })}{typing ? <div className="typing"><div className="dots"><i/><i/><i/></div> Stranger is typing…</div> : null}</div>{newMessages ? <button className="jump-latest" onClick={() => { followMessages.current = true; setNewMessages(false); const list = messageList.current; if (list) list.scrollTop = list.scrollHeight; }}><ArrowDown size={15}/>New messages</button> : null}</div>
         {!peerLeft ? <div className="chat-composer">{replyTo ? <div className="reply-preview"><span>Replying to: {replyTo.body.slice(0,100)}</span><button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X size={16}/></button></div> : null}<form onSubmit={e => void send(e)}><label className="sr-only" htmlFor="message">Message</label><input ref={messageInput} id="message" autoComplete="off" enterKeyHint="send" maxLength={2000} placeholder="Say something kind…" value={draft} onChange={e => type(e.target.value)} disabled={broken || busy}/><button className="send-button" type="submit" onPointerDown={e => e.preventDefault()} aria-label={sending ? 'Sending message' : 'Send message'} disabled={!draft.trim() || broken || busy || sending}><Send size={20}/></button></form></div> : null}
       </section> : null}
+
+      {screen === 'reconnect' ? <section className="chat-area reconnect-area" aria-label="Reconnect chat"><div className="reconnect-title"><div><strong>Reconnect chat</strong><small>Code: <b>{reconnectCode}</b></small></div><span>Expires {reconnectExpiry ? new Date(reconnectExpiry).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'in 24 hours'}</span><button className="chat-header-button" onClick={() => {setScreen('home');setMessages([]);setReconnectCode('');}}>Close</button></div><div className="conversation-body"><div className="message-list" role="log">{messages.map(m => <div key={m.id} className={`message ${m.sender_id === uid ? 'mine' : 'theirs'}`}><span className="message-text">{m.body}</span><time>{time(m.created_at)}</time></div>)}</div></div><div className="chat-composer"><form onSubmit={e => void sendReconnect(e)}><input aria-label="Message" placeholder="Continue your conversation…" value={draft} onChange={e => setDraft(e.target.value)} maxLength={2000}/><button className="send-button" type="submit" disabled={!draft.trim() || sending || busy}><Send size={20}/></button></form></div></section> : null}
 
       {screen === 'disconnected' ? <section className="center-state"><div className="hero-icon"><MessageCircle size={45}/></div><span className="pill">Every hello is a new beginning</span><h2>This conversation<br /><span>has ended.</span></h2><p>{session?.end_reason === 'timeout' ? 'The connection timed out or reached its one-hour limit.' : 'Ready for another perspective?'}<br />Your next conversation is a tap away.</p><button className="button primary" disabled={busy || !online} onClick={next}><Shuffle size={18}/>Find a new stranger<ArrowRight size={18}/></button><button className="text-button" disabled={busy} onClick={() => { generation.current++; engaged.current = false; setScreen('home'); setError(''); setMessages([]); }}>Back to home</button>{session ? <button className="text-button" onClick={() => setModal('report')}><Flag size={14}/> Report or block last stranger</button> : null}</section> : null}
       <footer className="bottom-bar"><span><LockKeyhole size={13}/>Anonymous random chat</span></footer>
