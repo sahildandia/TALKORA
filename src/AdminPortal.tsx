@@ -4,7 +4,7 @@ import { db } from './lib';
 type ChatRow = { session_id: string; created_at: string; user_a: string; user_b: string; active_members: number };
 
 export default function AdminPortal({ onClose }: { onClose: () => void }) {
-  const [email, setEmail] = useState('dandiasahil@gmail.com');
+  const adminEmail = 'dandiasahil@gmail.com';
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -37,8 +37,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     e.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       if (!db) throw new Error('Chat service unavailable.');
-      if (email.trim().toLowerCase() !== 'dandiasahil@gmail.com') throw new Error('This email is not authorized.');
-      const { error: e } = await db.auth.signInWithPassword({ email: email.trim(), password });
+      const { error: e } = await db.auth.signInWithPassword({ email: adminEmail, password });
       if (e) throw e;
       await load();
       setSignedIn(true);
@@ -49,8 +48,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     setBusy(true); setError(''); setNotice('');
     try {
       if (!db) throw new Error('Chat service unavailable.');
-      if (email.trim().toLowerCase() !== 'dandiasahil@gmail.com') throw new Error('This email is not authorized.');
-      const { error: e } = await db.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+      const { error: e } = await db.auth.resetPasswordForEmail(adminEmail, { redirectTo: window.location.origin + '/admin' });
       if (e) throw e;
       setNotice('Password reset link sent. Open the email and choose your password, then return here to sign in.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not send password reset link.'); }
@@ -76,8 +74,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     {!signedIn ? <div className="start-card" style={{maxWidth:440,margin:'auto'}}>
       <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Admin sign-in</p>
       <form onSubmit={login} style={{display:'grid',gap:12}}>
-        <label style={{fontSize:12}}>Email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required autoComplete="username" style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/>
-        <label style={{fontSize:12}}>Password</label><input value={password} onChange={e=>setPassword(e.target.value)} type="password" required autoComplete="current-password" style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/>
+        <label style={{fontSize:12}}>Admin password</label><input value={password} onChange={e=>setPassword(e.target.value)} type="password" required autoComplete="current-password" style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/>
         <button className="button primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
       <button type="button" className="text-button" disabled={busy} onClick={()=>void resetPassword()} style={{marginTop:14}}>Set / reset password by email</button>
