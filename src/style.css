@@ -321,3 +321,10 @@
  .screen-chat .chat-header-button{min-width:38px;padding:0 5px;font-size:9px}
  .screen-chat .chat-header-actions .active-users-header{padding:5px}
 }
+
+
+/* Android APK download icon, independent from the theme switch */
+.download-toggle{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--text);text-decoration:none;cursor:pointer;transition:background .2s ease,color .2s ease,transform .15s ease}
+.download-toggle svg{display:block}
+.download-toggle:active{transform:scale(.92)}
+@media(max-width:480px){.download-toggle{width:40px;height:40px;min-width:40px;min-height:40px}}
