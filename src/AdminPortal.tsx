@@ -5,9 +5,10 @@ type ChatRow = { session_id: string; created_at: string; user_a: string; user_b:
 
 export default function AdminPortal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('dandiasahil@gmail.com');
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [signedIn, setSignedIn] = useState(false);
 
@@ -32,15 +33,27 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     return () => window.clearInterval(timer);
   }, [signedIn]);
 
-  async function requestLink(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setError('');
+  async function login(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       if (!db) throw new Error('Chat service unavailable.');
       if (email.trim().toLowerCase() !== 'dandiasahil@gmail.com') throw new Error('This email is not authorized.');
-      const { error: e } = await db.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } });
+      const { error: e } = await db.auth.signInWithPassword({ email: email.trim(), password });
       if (e) throw e;
-      setSent(true);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not send sign-in link.'); }
+      await load();
+      setSignedIn(true);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not sign in.'); }
+    finally { setBusy(false); }
+  }
+  async function resetPassword() {
+    setBusy(true); setError(''); setNotice('');
+    try {
+      if (!db) throw new Error('Chat service unavailable.');
+      if (email.trim().toLowerCase() !== 'dandiasahil@gmail.com') throw new Error('This email is not authorized.');
+      const { error: e } = await db.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+      if (e) throw e;
+      setNotice('Password reset link sent. Open the email and choose your password, then return here to sign in.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not send password reset link.'); }
     finally { setBusy(false); }
   }
   async function stop(id: string) {
@@ -53,7 +66,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not stop chat.'); }
     finally { setBusy(false); }
   }
-  async function logout() { await db?.auth.signOut(); setSignedIn(false); setRows([]); setSent(false); }
+  async function logout() { await db?.auth.signOut(); setSignedIn(false); setRows([]); setPassword(''); }
 
   return <section style={{width:'min(760px, calc(100% - 32px))',margin:'auto',padding:'26px 0',color:'var(--text)'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
@@ -61,8 +74,13 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
       <button className="button secondary" onClick={onClose}>Close</button>
     </div>
     {!signedIn ? <div className="start-card" style={{maxWidth:440,margin:'auto'}}>
-      <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Sign in with the authorized admin email. A secure sign-in link will be sent to your inbox.</p>
-      {!sent ? <form onSubmit={requestLink} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Admin email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}>{busy ? 'Sending…' : 'Send secure login link'}</button></form> : <div style={{display:'grid',gap:12}}><p style={{fontSize:13,lineHeight:1.7,color:'var(--muted)'}}>Check your inbox and open the sign-in link in this browser. Then click Talkora again to open the admin dashboard.</p><button type="button" className="text-button" onClick={()=>setSent(false)}>Send another link</button></div>}
+      <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Admin sign-in</p>
+      <form onSubmit={login} style={{display:'grid',gap:12}}>
+        <label style={{fontSize:12}}>Email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required autoComplete="username" style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/>
+        <label style={{fontSize:12}}>Password</label><input value={password} onChange={e=>setPassword(e.target.value)} type="password" required autoComplete="current-password" style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/>
+        <button className="button primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      </form>
+      <button type="button" className="text-button" disabled={busy} onClick={()=>void resetPassword()} style={{marginTop:14}}>Set / reset password by email</button>
     </div> : <>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><p style={{fontSize:12,color:'var(--muted)'}}>Managing Talkora + StrangerTalk · {rows.length} active chats</p><button className="button secondary" onClick={()=>void logout()}>Sign out</button></div>
       {rows.length ? <div style={{display:'grid',gap:10}}>{rows.map(row=><article key={row.session_id} className="start-card" style={{display:'flex',alignItems:'center',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}>
@@ -70,6 +88,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
         <button className="button secondary" disabled={busy} onClick={()=>void stop(row.session_id)}>Stop chat</button>
       </article>)}</div> : <div className="start-card" style={{textAlign:'center',color:'var(--muted)',fontSize:13}}>No active conversations right now.</div>}
     </>}
+    {notice ? <p role="status" style={{color:'var(--muted)',fontSize:12,marginTop:14}}>{notice}</p> : null}
     {error ? <p role="alert" style={{color:'#d88',fontSize:12,marginTop:14}}>{error}</p> : null}
   </section>;
 }
