@@ -176,6 +176,21 @@ export default function App() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [session?.id, screen]);
 
+  useEffect(() => {
+    if (screen !== 'reconnect' || !reconnectCode) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const result = await rpc<{expires_at:string;messages:Array<{id:string;sender_id:string;body:string;created_at:string}>}>('tk_reconnect_refresh', { p_code: reconnectCode });
+        if (!cancelled) { setReconnectExpiry(result.expires_at); setMessages(result.messages.map(m => ({...m,session_id:'reconnect',client_nonce:m.id})) as Message[]); }
+      } catch (e) {
+        if (!cancelled) { setError(friendlyError(e)); setScreen('home'); setMessages([]); setReconnectCode(''); }
+      }
+    };
+    void load(); const timer=setInterval(() => { if (!document.hidden) void load(); }, 3000);
+    return () => { cancelled=true; clearInterval(timer); };
+  }, [screen, reconnectCode]);
+
   const latestMessage = messages.at(-1)?.id;
   useEffect(() => {
     const list = messageList.current;
