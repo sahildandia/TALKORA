@@ -5,7 +5,6 @@ type ChatRow = { session_id: string; created_at: string; user_a: string; user_b:
 
 export default function AdminPortal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('dandiasahil@gmail.com');
-  const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -76,8 +75,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     </div>
     {!signedIn ? <div className="start-card" style={{maxWidth:440,margin:'auto'}}>
       <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Sign in with the authorized admin email. A one-time code will be sent to your inbox.</p>
-      {!sent ? <form onSubmit={requestCode} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Admin email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}> {busy ? 'Sending…' : 'Send login code'} </button></form> :
-      <form onSubmit={verifyCode} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Enter the email code</label><input value={code} onChange={e=>setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}>{busy ? 'Verifying…' : 'Verify and sign in'}</button><button type="button" className="text-button" onClick={()=>setSent(false)}>Change email</button></form>}
+      {!sent ? <form onSubmit={requestCode} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Admin email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}> {busy ? 'Sending…' : 'Send secure login link'} </button></form> : <div style={{display:'grid',gap:12}}><p style={{fontSize:13,lineHeight:1.7,color:'var(--muted)'}}>Check your inbox and open the sign-in link in this browser. Then click Talkora again to open the admin dashboard.</p><button type="button" className="text-button" onClick={()=>setSent(false)}>Send another link</button></div>}
     </div> : <>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><p style={{fontSize:12,color:'var(--muted)'}}>Managing Talkora + StrangerTalk · {rows.length} active chats</p><button className="button secondary" onClick={()=>void logout()}>Sign out</button></div>
       {rows.length ? <div style={{display:'grid',gap:10}}>{rows.map(row=><article key={row.session_id} className="start-card" style={{display:'flex',alignItems:'center',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}>
