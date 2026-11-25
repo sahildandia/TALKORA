@@ -9,7 +9,7 @@ const storage = {
   async removeItem(key: string) { await Preferences.remove({ key }); }
 };
 export const db = configured ? createClient(url!, key!, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage },
   global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15000) }) }
 }) : null;
 export const TERMS_VERSION = '2026-10-17';
