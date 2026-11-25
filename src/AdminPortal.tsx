@@ -21,9 +21,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     if (!db) return;
     let alive = true;
     void db.auth.getSession().then(async ({ data }) => {
-      if (!alive || !data.session) return;
-      const userEmail = data.session.user.email?.toLowerCase();
-      if (userEmail !== 'dandiasahil@gmail.com') return;
+      if (!alive || !data.session || data.session.user.email?.toLowerCase() !== 'dandiasahil@gmail.com') return;
       try { await load(); if (alive) setSignedIn(true); } catch { if (alive) await db.auth.signOut(); }
     });
     return () => { alive = false; };
@@ -34,7 +32,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     return () => window.clearInterval(timer);
   }, [signedIn]);
 
-  async function requestCode(e: FormEvent) {
+  async function requestLink(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError('');
     try {
       if (!db) throw new Error('Chat service unavailable.');
@@ -42,18 +40,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
       const { error: e } = await db.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } });
       if (e) throw e;
       setSent(true);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not send sign-in code.'); }
-    finally { setBusy(false); }
-  }
-  async function verifyCode(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError('');
-    try {
-      if (!db) throw new Error('Chat service unavailable.');
-      const { data, error: e } = await db.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' });
-      if (e) throw e;
-      if (data.user?.email?.toLowerCase() !== 'dandiasahil@gmail.com') { await db.auth.signOut(); throw new Error('This account is not authorized.'); }
-      await load(); setSignedIn(true);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Verification failed.'); }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not send sign-in link.'); }
     finally { setBusy(false); }
   }
   async function stop(id: string) {
@@ -66,7 +53,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not stop chat.'); }
     finally { setBusy(false); }
   }
-  async function logout() { await db?.auth.signOut(); setSignedIn(false); setRows([]); setSent(false); setCode(''); }
+  async function logout() { await db?.auth.signOut(); setSignedIn(false); setRows([]); setSent(false); }
 
   return <section style={{width:'min(760px, calc(100% - 32px))',margin:'auto',padding:'26px 0',color:'var(--text)'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
@@ -74,8 +61,8 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
       <button className="button secondary" onClick={onClose}>Close</button>
     </div>
     {!signedIn ? <div className="start-card" style={{maxWidth:440,margin:'auto'}}>
-      <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Sign in with the authorized admin email. A one-time code will be sent to your inbox.</p>
-      {!sent ? <form onSubmit={requestCode} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Admin email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}> {busy ? 'Sending…' : 'Send secure login link'} </button></form> : <div style={{display:'grid',gap:12}}><p style={{fontSize:13,lineHeight:1.7,color:'var(--muted)'}}>Check your inbox and open the sign-in link in this browser. Then click Talkora again to open the admin dashboard.</p><button type="button" className="text-button" onClick={()=>setSent(false)}>Send another link</button></div>}
+      <p style={{fontSize:13,color:'var(--muted)',marginBottom:18}}>Sign in with the authorized admin email. A secure sign-in link will be sent to your inbox.</p>
+      {!sent ? <form onSubmit={requestLink} style={{display:'grid',gap:12}}><label style={{fontSize:12}}>Admin email</label><input value={email} onChange={e=>setEmail(e.target.value)} type="email" required style={{padding:13,borderRadius:10,border:'1px solid var(--line)',background:'var(--bg)',color:'var(--text)'}}/><button className="button primary" disabled={busy}>{busy ? 'Sending…' : 'Send secure login link'}</button></form> : <div style={{display:'grid',gap:12}}><p style={{fontSize:13,lineHeight:1.7,color:'var(--muted)'}}>Check your inbox and open the sign-in link in this browser. Then click Talkora again to open the admin dashboard.</p><button type="button" className="text-button" onClick={()=>setSent(false)}>Send another link</button></div>}
     </div> : <>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><p style={{fontSize:12,color:'var(--muted)'}}>Managing Talkora + StrangerTalk · {rows.length} active chats</p><button className="button secondary" onClick={()=>void logout()}>Sign out</button></div>
       {rows.length ? <div style={{display:'grid',gap:10}}>{rows.map(row=><article key={row.session_id} className="start-card" style={{display:'flex',alignItems:'center',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}>
