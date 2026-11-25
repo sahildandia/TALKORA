@@ -22,7 +22,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     let alive = true;
     void db.auth.getSession().then(async ({ data }) => {
       if (!alive || !data.session || data.session.user.email?.toLowerCase() !== 'dandiasahil@gmail.com') return;
-      try { await load(); if (alive) setSignedIn(true); } catch { if (alive) await db.auth.signOut(); }
+      try { await load(); if (alive) setSignedIn(true); } catch { if (alive) void db?.auth.signOut(); }
     });
     return () => { alive = false; };
   }, []);
