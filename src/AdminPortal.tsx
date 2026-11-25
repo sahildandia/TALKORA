@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { db } from './lib';
 
 type ChatRow = { session_id: string; created_at: string; user_a: string; user_b: string; active_members: number };
@@ -35,7 +35,7 @@ export default function AdminPortal({ onClose }: { onClose: () => void }) {
     return () => window.clearInterval(timer);
   }, [signedIn]);
 
-  async function requestCode(e: React.FormEvent) {
+  async function requestCode(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError('');
     try {
       if (!db) throw new Error('Chat service unavailable.');
