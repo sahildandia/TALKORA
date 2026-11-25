@@ -293,3 +293,31 @@
 .reconnect-title .chat-header-button{min-width:auto}
 .reconnect-area{height:calc(100dvh - 66px)!important}
 @media(max-width:480px){.reconnect-entry form{gap:6px}.reconnect-entry .button{padding:0 10px}.reconnect-title{gap:7px;padding:10px}.reconnect-title>span{font-size:9px}.reconnect-title .chat-header-button{min-width:auto;padding:0 8px}}
+
+/* Keep every random-chat header control visible on narrow phones. */
+.screen-chat .topbar{min-width:0;gap:8px}
+.screen-chat .topbar .mobile-brand{flex:0 0 auto;white-space:nowrap}
+.screen-chat .chat-header-actions{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.screen-chat .chat-header-actions>*{flex:0 0 auto}
+.screen-chat .chat-header-button{min-width:48px;min-height:38px;padding:0 10px;white-space:nowrap;font-size:11px}
+.screen-chat .chat-header-actions .active-users-header{padding:7px 8px;gap:5px}
+.screen-chat .chat-header-actions .active-users-header small{font-size:8px}
+.screen-chat .reconnect-code-chip{max-width:104px;padding:7px 8px;font-size:10px;letter-spacing:.7px}
+@media(max-width:420px){
+ .screen-chat .topbar{height:62px;padding:7px 9px;gap:6px}
+ .screen-chat .topbar .mobile-brand{font-size:16px}
+ .screen-chat .chat-header-actions{gap:4px}
+ .screen-chat .chat-header-button{min-width:42px;min-height:36px;padding:0 7px;font-size:10px}
+ .screen-chat .chat-header-actions .active-users-header{padding:6px 7px;gap:4px}
+ .screen-chat .chat-header-actions .active-users-header small{display:none}
+ .screen-chat .chat-header-actions .active-users-header strong{font-size:12px}
+ .screen-chat .reconnect-consent{min-width:38px!important;padding:0 6px!important}
+ .screen-chat .reconnect-code-chip{max-width:90px;padding:6px 6px;font-size:9px;letter-spacing:.4px}
+}
+@media(max-width:340px){
+ .screen-chat .topbar{padding-left:6px;padding-right:6px;gap:4px}
+ .screen-chat .topbar .mobile-brand{font-size:15px}
+ .screen-chat .chat-header-actions{gap:3px}
+ .screen-chat .chat-header-button{min-width:38px;padding:0 5px;font-size:9px}
+ .screen-chat .chat-header-actions .active-users-header{padding:5px}
+}
