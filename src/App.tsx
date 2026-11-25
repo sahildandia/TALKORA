@@ -355,6 +355,7 @@ export default function App() {
         <div className="start-card">
           {needsCaptcha ? <Captcha key={captchaKey} onToken={setCaptchaToken}/> : null}
           <button className="button primary start-button" disabled={busy || !online || (needsCaptcha && !captchaToken)} onClick={start}><MessageCircle size={20}/>{busy ? 'Connecting…' : 'Start Chat'}<ArrowRight size={20}/></button>
+          <a className="button secondary download-apk-button" href="https://github.com/sahildandia/TALKORA/releases/latest/download/Talkora.apk" target="_blank" rel="noreferrer">Download Talkora for Android</a>
           <p className="micro age-note">For adults 18+.</p>
           <div className="reconnect-entry"><span>Already have a reconnect code?</span><form onSubmit={e => void openReconnect(e)}><input aria-label="Reconnect code" placeholder="Enter your code" value={reconnectInput} onChange={e => setReconnectInput(e.target.value)} maxLength={12}/><button className="button secondary" type="submit" disabled={!reconnectInput.trim() || busy}>Reconnect</button></form></div>
         </div>
